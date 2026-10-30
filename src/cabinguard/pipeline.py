@@ -13,6 +13,7 @@ class CabinGuardPipeline:
         self.guardian = SafetyGuardian(config_path)
         self.vehicle = SimulatedVehicle()
         self.secure_adapter = secure_adapter
+        self.secure_coordinator = None
         self.temporal = TemporalAnalyzer(window_seconds=5.0, min_persistence_seconds=2.0)
         self.digital_twin = DriverDigitalTwin(min_calibration_samples=10)
         self.health_manager = SystemSensorHealthManager()
@@ -55,8 +56,29 @@ class CabinGuardPipeline:
         vehicle_context = self.vehicle.context
         if sensors.vehicle_interface_available is not True:
             vehicle_context.vehicle_available = False
-        decision = self.guardian.evaluate(effective_detection, sensors, security, vehicle_context)
-        record = self.vehicle.apply_decision(decision)
+
+        decision = self.guardian.evaluate(
+            effective_detection, sensors, security, vehicle_context
+        )
+
+        # Default to a safe, logging-only decision.
+        safe_decision = replace(
+            decision,
+            allow_simulated_response=False,
+            actions=["LOG_EVENT"],
+        )
+
+        # Critical simulated responses require the P3 coordinator.
+        if self.secure_coordinator is not None:
+            try:
+                safe_decision = self.secure_coordinator.process_decision(
+                    decision,
+                    now=detection.timestamp,
+                )
+            except Exception:
+                pass  # Fail closed: keep the logging-only decision.
+
+        record = self.vehicle.apply_decision(safe_decision)
         record.update({
             "degraded_mode": decision.degraded_mode or health.system_health_state != "FULL",
             "rejected_checks": decision.rejected_checks,

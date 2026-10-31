@@ -1,0 +1,6 @@
+# Uniquement pour la simulation CARLA (le reste du projet n'a aucune dépendance).
+# Installer de préférence la roue fournie avec VOTRE simulateur :
+#   pip install <CARLA>\PythonAPI\carla\dist\carla-0.9.XX-cp310-cp310-win_amd64.whl
+# (la version du client doit être celle du serveur ; Python 3.14 n'est pas supporté.)
+numpy
+matplotlib   # optionnel : scripts/plot_sim.py
